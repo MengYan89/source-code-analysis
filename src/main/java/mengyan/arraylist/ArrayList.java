@@ -463,11 +463,6 @@ public class ArrayList<E> extends AbstractList<E>
 
     /**
      * 返回此列表中指定位置的元素。
-     * Returns the element at the specified position in this list.
-     *
-     * @param  index index of the element to return
-     * @return the element at the specified position in this list
-     * @throws IndexOutOfBoundsException {@inheritDoc}
      */
     public E get(int index) {
         // 判断index是否大于等于元素数量

@@ -367,3 +367,119 @@ set方法只有一个：
 ```
 代码基本也很简单，就简单赘述一下，rangeCheck是用来判断index是否大于等于size的方法，如果大于等于则抛出IndexOutOfBoundsException。  
 检测通过之后取出当前index位置的元素，将新元素替换上去后，返回原本的元素。
+## 查找数据
+这里主要讲解几个查询索引与获取数据的方法，同样还是不包括ListIterator与Iterator。  
+共有4个方法。
+```java
+    /**
+     * 返回此列表中指定位置的元素。
+     */
+    public E get(int index);
+    /**
+     * 返回指定元素第一次出现的索引,如果没有则返回-1
+     */
+    public int indexOf(Object o);
+
+    /**
+     * 返回指定元素最后一次出现的索引,如果没有则返回-1
+     */
+    public int lastIndexOf(Object o);
+
+    /**
+     * 判断ArrayList中是否至少有一个元素o，如果存在返回True
+     */
+    public boolean contains(Object o);
+```
+### get
+先说我们最常见的get方法讲起，还是先放源码。  
+```java
+    /**
+     * 返回此列表中指定位置的元素。
+     */
+    public E get(int index) {
+        // 判断index是否大于等于元素数量
+        rangeCheck(index);
+        // 不大于则调用elementData获得对应索引元素
+        return elementData(index);
+    }
+```
+这个源码一共只调用了两个方法，我们一个个看。 
+#### rangeCheck
+```java
+    /**
+     * 判断索引是否大于或等于元素数量如果大于等于则抛出IndexOutOfBoundsException
+     */
+    private void rangeCheck(int index) {
+        if (index >= size)
+            throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
+    }
+```
+rangeCheck仅仅就是判断了一下index是否超过或等于元素长度，如果超出就会抛出IndexOutOfBoundsException，不多赘述。  
+#### elementData
+```java
+    // 位置取操作
+    @SuppressWarnings("unchecked")
+    E elementData(int index) {
+        // 直接拿出elementData对应索引的元素
+        return (E) elementData[index];
+    }
+```
+elementData只进行一个操作就是取出elementData中对应索引的元素并转换为当前范型返回。  
+读完这两个方法我们发现get本质上其实就是从数组中取出对应的数据，只是在前面加了一个对索引的判断而已。  
+### indexOf
+```java
+    /**
+     * 返回指定元素第一次出现的索引,如果没有则返回-1
+     */
+    public int indexOf(Object o) {
+        // 判断o是否为null
+        if (o == null) {
+            // 如果为空则从头遍历elementData寻找到第一个为null的索引i返回
+            for (int i = 0; i < size; i++)
+                if (elementData[i]==null)
+                    return i;
+        } else {
+            // 如果不为空则从头遍历elementData，用equals判断寻找到第一个equals返回为true的元素的索引i返回
+            for (int i = 0; i < size; i++)
+                if (o.equals(elementData[i]))
+                    return i;
+        }
+        // 如果没有找到返回-1
+        return -1;
+    }
+```
+indexOf应该是最简单的一个方法之一了，只要有些java基础就能看懂，简单描述一下吧，首先判断元素是否为空，为空就去正向遍历elementData找到第一个为空的元素，
+不为空就使用equals找到第一个相同的元素，最后返回索引，如果没有找到对应元素就返回-1。  
+### lastIndexOf
+```java
+    /**
+     * 返回指定元素最后一次出现的索引,如果没有则返回-1
+     */
+    public int lastIndexOf(Object o) {
+        // 判断o是否为null
+        if (o == null) {
+            // 如果为空则从尾遍历elementData寻找到第一个为null的索引i返回
+            for (int i = size-1; i >= 0; i--)
+                if (elementData[i]==null)
+                    return i;
+        } else {
+            // 如果不为空则从尾遍历elementData，用equals判断寻找到第一个equals返回为true的元素的索引i返回
+            for (int i = size-1; i >= 0; i--)
+                if (o.equals(elementData[i]))
+                    return i;
+        }
+        // 如果没有找到返回-1
+        return -1;
+    }
+```
+lastIndexOf与indexOf几乎一摸一样只是将正向遍历改成了反向遍历。  
+### contains
+```java
+    /**
+     * 判断ArrayList中是否至少有一个元素o，如果存在返回True
+     */
+    public boolean contains(Object o) {
+        return indexOf(o) >= 0;
+    }
+```
+contains中直接调用了indexOf方法，只要返回值不为-1就证明elementData中有这个元素。  
