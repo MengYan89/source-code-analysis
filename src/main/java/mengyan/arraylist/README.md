@@ -641,4 +641,226 @@ contains中直接调用了indexOf方法，只要返回值不为-1就证明elemen
 先看try代码块中很简单的代码，用for遍历elementData，如果c.contains(elementData[r])==complement为true的元素就会被保留下来，由于在c集合中存在这个元素的情况下
 contains会返回true所以complement传入true时保留c中存在的元素，false时删除c中存在的元素，满足条件的元素从0索引开始向后添加直到遍历结束。  
 如果r != size 则证明try代码块中的for没有正常执行完有后续没有循环到的元素。将r及以后元素放至在w索引以后,并为w的计数器加上添加后的数量。  
-如果w != size证明保留的元素比原本的size小，则把w以后的元素都设置为null，并且只有在删除了元素的情况下modified才会被设置为true。
+如果w != size证明保留的元素比原本的size小，则把w以后的元素都设置为null，并且只有在删除了元素的情况下modified才会被设置为true。  
+## 获取ArrayList基本信息
+### size
+### isEmpty
+算是基本信息的接口应该只有两个功能也差不多一个是获取size的大小，一个是判断当前ArrayList是否为空：
+```java
+    /**
+     * 返回元素数量，不是ArrayList的容量
+     */
+    public int size() {
+        return size;
+    }
+
+    /**
+     * 判断ArrayList是否为空，判断的也是元素量不是容量
+     */
+    public boolean isEmpty() {
+        return size == 0;
+    }
+```
+两个几乎不用脑子的源码，不做解释。  
+## 手动扩容与缩减
+关于ArrayList能够调用的与容量相关的方法有两个：
+```java
+    /**
+     * 将ArrayList的实际容量调整为与数组内数据数量相同的大小
+     */
+    public void trimToSize();
+    /**
+     * 将ArrayList扩容至minCapacity大小
+     */
+    public void ensureCapacity(int minCapacity);
+```
+### trimToSize
+trimToSize的作用是将ArrayList的实际容量缩小至与元素数相同。  
+也就是说我们有10个元素，由于动态扩容的原因我们的实际容量是15，调用trimToSize之后实际容量也会缩小至10。  
+下面来看一下源码:
+```java
+    /**
+     * 将ArrayList的实际容量调整为与数组内数据数量相同的大小
+     */
+    public void trimToSize() {
+        // 操作次数增加
+        modCount++;
+        // 先判断数据数量是否小于实际容量，如果不小于就没有调整的必要
+        if (size < elementData.length) {
+            // 如果大小为0就直接赋值一个空数组，如果不为0就生成一个相同大小的数组
+            elementData = (size == 0)
+                    ? EMPTY_ELEMENTDATA
+                    : Arrays.copyOf(elementData, size);
+        }
+    }
+```
+首先还是惯例的增加操作次数，然后判断size是否小于实际容量，如果实际容量不大于size的话就没有必要缩减容量了。  
+最后判断size是否等于0，如果为0就直接给他一个我们默认的空数组，如果不为零就copy一个size大小的elementData赋值回去。  
+### ensureCapacity
+手动进行ArrayList的扩容操作，但也许ArrayList并不会扩容至你希望的大小，为什么会在下面的源码中讲述。  
+```java
+    /**
+     * 将ArrayList扩容至minCapacity大小
+     * 如果minCapacity小于默认扩容大小则扩容至默认扩容大小
+     *
+     * @param   minCapacity   the desired minimum capacity
+     */
+    public void ensureCapacity(int minCapacity) {
+        // 判断elementData是否为缺省数组，保证无参构造函数创建的为默认大小minExpand
+        int minExpand = (elementData != DEFAULTCAPACITY_EMPTY_ELEMENTDATA)
+                // any size if not default element table
+                ? 0
+                // larger than default for default empty table. It's already
+                // supposed to be at default size.
+                : DEFAULT_CAPACITY;
+
+        // 如果minCapacity指定的大小小于minExpand还是扩容至minExpand大小
+        if (minCapacity > minExpand) {
+            ensureExplicitCapacity(minCapacity);
+        }
+    }
+```
+首先由于ArrayList的初始策略是分为有参与无参所以会先根据初始化策略获得一个默认扩容的基数，无参为10，有参为0。  
+然后用这个基数做比较，哪个大才以哪个为准。比如说你是无参构造函数创建的ArrayList，但你想给他扩容至5，调用了ensureCapacity(5)，但他依然会扩充至10。  
+如果是初始化elementData过后再来扩容同样会与ArrayList的默认扩容做比较，扩容大的那个，为什么请去查看ensureExplicitCapacity的方法解析。  
+## 生成对应数组
+也就是toArray方法，在ArrayList中一共有两个：
+```java
+   /**
+     * 返回一个包含全部元素且大小与元素数量相同的Object[]
+     */
+    public Object[] toArray();
+    
+    /**
+     * 传入一个泛型数组，将元素全部填充进去后返回
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T[] toArray(T[] a);
+    
+```
+### toArray
+先看最简单的返回Object[]的那个:
+```java
+    /**
+     * 返回一个包含全部元素且大小与元素数量相同的Object[]
+     */
+    public Object[] toArray() {
+        return Arrays.copyOf(elementData, size);
+    }
+```
+不多说一眼懂。  
+再看返回范型的toArray：
+```java
+    /**
+     * 传入一个泛型数组，将元素全部填充进去后返回
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T[] toArray(T[] a) {
+        // 当a的长度小于size会直接将elementData生成一个大小为size的符合泛型的数组返回
+        // 防止报错ArrayIndexOutOfBoundsException
+        if (a.length < size)
+            // Make a new array of a's runtime type, but my contents:
+            return (T[]) Arrays.copyOf(elementData, size, a.getClass());
+        //使用System.arraycopy将elementData拷贝进a，元素不会被克隆
+        System.arraycopy(elementData, 0, a, 0, size);
+        //如果a.length大于size，size索引的位置会被设置为null
+        if (a.length > size)
+            a[size] = null;
+        return a;
+    }
+```
+首先我们先判断这个传入的数组a的长度能否容纳我们的元素如果a的长度没有size大，那就新建一个对应范型的数组放入所有元素后返回。  
+如果a.length不小于size那么会用System.arraycopy将elementData中的元素复制进a。并且如果a.length大于size，a数组的size索引位置会被设置为null。  
+## 克隆
+由于原本的克隆只能克隆基础数据类型，比如Object[]如果直接使用原本的克隆，新的ArrayList里面的elementData的内存引用和原来的ArrayList是相同的。
+所以ArrayList实现了Cloneable重写了clone。
+### clone
+```java
+    /**
+     * 克隆一个ArrayList，浅克隆 elementData中的元素不会被克隆
+     */
+    public Object clone() {
+        try {
+            // 克隆一个ArrayList
+            ArrayList<?> v = (ArrayList<?>) super.clone();
+            // 克隆一个大小与元素数量一样的elementData,给克隆出来的ArrayList
+            // 由于Arrays.copyOf也只是生成一个新的数组，没有克隆数组中的元素，所以元素不会被克隆
+            v.elementData = Arrays.copyOf(elementData, size);
+            // 重置操作次数
+            v.modCount = 0;
+            return v;
+        } catch (CloneNotSupportedException e) {
+            // this shouldn't happen, since we are Cloneable
+            throw new InternalError(e);
+        }
+    }
+```
+首先调用了父类的clone克隆基础数据类型比如size，然后使用Arrays.copyOf生成一个全新的数组将元素放进去，注意elementData中的元素并没有被克隆。  
+最后重置操作次数。  
+## 释放
+ArrayList提供了释放储存元素的方法：
+### clear
+```java
+    /**
+     * 释放ArrayList
+     */
+    public void clear() {
+        // 增加操作数
+        modCount++;
+
+        // clear to let GC do its work
+        // 将elementData所有的位置设置为null
+        for (int i = 0; i < size; i++)
+            elementData[i] = null;
+        // 设置元素数量为0
+        size = 0;
+    }
+```
+还是先增加操作次数，然后将elementData中的所有元素都设为空，将元素数设置为0。  
+## 序列化与反序列化
+还记得我们一开始说的elementData被transient修饰，但ArrayList却支持序列化么，现在就要到源码中看一下他是如何进行序列化的了。 
+ ```java
+    /**
+     * 序列化方法
+     */
+    private void writeObject(java.io.ObjectOutputStream s);
+
+    /**
+     * 反序列化
+     */
+    private void readObject(java.io.ObjectInputStream s);
+```
+### writeObject
+```java
+    /**
+     * 序列化方法
+     */
+    private void writeObject(java.io.ObjectOutputStream s)
+            throws java.io.IOException{
+        // Write out element count, and any hidden STUFF
+        // 记录操作数
+        int expectedModCount = modCount;
+        // 将当前类中可以序列化的字段写入s流
+        s.defaultWriteObject();
+
+        // Write out size as capacity for behavioural compatibility with clone()
+        // 将容量写入流
+        s.writeInt(size);
+
+        // Write out all elements in the proper order.
+        // 按正确的顺序将存在的元素写入流
+        for (int i=0; i<size; i++) {
+            s.writeObject(elementData[i]);
+        }
+        // 如果在序列化过程中操作过ArrayList，则expectedModCount != modCount
+        // 抛出ConcurrentModificationException
+        if (modCount != expectedModCount) {
+            throw new ConcurrentModificationException();
+        }
+    }
+```
+我们先来看一下序列化方法，在之前我们只进行记录操作的modCount终于要第一次发挥他的作用了，首先我们先记录一下当前的modCount。  
+然后调用defaultWriteObject方法将没有被静态修饰和没有被transient修饰的变量写入到流当中。  
+然后将size写入流(其实写入size看起来意义不大，因为之前defaultWriteObject已经将size写进流了，有知道的希望能评论讨论一下)  
+然后将elementData按顺序写入流，仅写入实际的元素，不写入扩容出的多余数组容量，这就是为什么elementData会用transient修饰的原因，为了优化序列化的过程。  
+
