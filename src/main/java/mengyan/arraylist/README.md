@@ -483,3 +483,162 @@ lastIndexOf与indexOf几乎一摸一样只是将正向遍历改成了反向遍�
     }
 ```
 contains中直接调用了indexOf方法，只要返回值不为-1就证明elementData中有这个元素。  
+## 删除元素
+删除元素有4个方法其中retainAll是仅保留指定集合中的元素也会删除元素，所以也放到删除元素这里来讲。  
+```java
+   /**
+     * 从ArrayList中删除对应位置的元素并返回它
+     */
+    public E remove(int index);
+
+    /**
+     * 删除第一个o元素，成功返回true，没有o元素返回false
+     */
+    public boolean remove(Object o);
+    /**
+     * 从此列表中移除指定集合中包含的所有元素。
+     */
+    public boolean removeAll(Collection<?> c);
+    /**
+     * 仅保留指定集合中的元素
+     */
+    public boolean retainAll(Collection<?> c);
+```
+### remove
+一共有两个remove方法一个是以索引为参数删除指定元素并返回，另一个是以指定元素为参数在ArrayList中删除这个元素。  
+先说第一个以索引为参数的remove:  
+```java
+    /**
+     * 从ArrayList中删除对应位置的元素并返回它
+     */
+    public E remove(int index) {
+        // 判断index是否大于等于元素数量
+        rangeCheck(index);
+        // 增加操作数
+        modCount++;
+        // 获取对应位置的元素
+        E oldValue = elementData(index);
+        // 获取这个元素后还有多少个元素
+        int numMoved = size - index - 1;
+        // 如果不为最后一个元素则用index+1和后续的元素，复制到index的位置。
+        if (numMoved > 0)
+            System.arraycopy(elementData, index+1, elementData, index,
+                    numMoved);
+        // 将最后一个元素设置为null,且size-1
+        elementData[--size] = null; // clear to let GC do its work
+        // 返回index位置之前的元素
+        return oldValue;
+    }
+```
+简单的逻辑，首先还是老方法rangeCheck校验index是否大于等于size，增加操作数，取出对应元素一气呵成。  
+最后如果不是最后一个元素则把后面的元素左移一位后，设置size末端元素为null并size-1，返回被删除元素。  
+下面看以指定元素为参数的remove:  
+```java
+    /**
+     * 删除第一个o元素，成功返回true，没有o元素返回false
+     */
+    public boolean remove(Object o) {
+        //为空 不为空分开处理
+        if (o == null) {
+            for (int index = 0; index < size; index++)
+                if (elementData[index] == null) {
+                    // 删除对应元素
+                    fastRemove(index);
+                    return true;
+                }
+        } else {
+            for (int index = 0; index < size; index++)
+                if (o.equals(elementData[index])) {
+                    // 删除对应元素
+                    fastRemove(index);
+                    return true;
+                }
+        }
+        return false;
+    }
+```
+从上面一直看下来的人看到这两个for是不是很眼熟，和indexOf中的一样是为了将null元素与正常元素分开处理。没有找到对应元素就直接返回false。  
+找到对应元素后就调用
+#### fastRemove：
+```java
+    /**
+     * 与remove基本相同只是没有了检测index是否越界与获取被删除的元素。
+     */
+    private void fastRemove(int index) {
+        modCount++;
+        int numMoved = size - index - 1;
+        if (numMoved > 0)
+            System.arraycopy(elementData, index+1, elementData, index,
+                    numMoved);
+        elementData[--size] = null; // clear to let GC do its work
+    }
+```
+与第一个remove几乎一摸一样，由于是之前遍历出来的index也没有校验的必要，也不需要获取元素，所以只保留了remove中删除元素的代码。  
+### removeAll与retainAll
+这两个方法底层调用的是同一个私有方法所以我们一起讲:
+```java
+    /**
+     * 从此列表中移除指定集合中包含的所有元素。
+     */
+    public boolean removeAll(Collection<?> c) {
+        Objects.requireNonNull(c);
+        return batchRemove(c, false);
+    }
+
+    /**
+     * 仅保留指定集合中的元素
+     */
+    public boolean retainAll(Collection<?> c) {
+        Objects.requireNonNull(c);
+        return batchRemove(c, true);
+    }
+```
+两个方法都是在判断指定集合不为空之后调用了batchRemove方法只是第二个参数有所不同。  
+#### batchRemove
+```java
+    // 根据指定集合与complement对ArrayList进行操作
+    // complement为false则从elementData移除指定集合中的元素
+    // 为true则只保留指定集合中的元素
+    private boolean batchRemove(Collection<?> c, boolean complement) {
+        final Object[] elementData = this.elementData;
+        // r遍历计数器
+        // w保留元素计数器
+        int r = 0, w = 0;
+        boolean modified = false;
+        try {
+            for (; r < size; r++)
+                if (c.contains(elementData[r]) == complement)
+                    elementData[w++] = elementData[r];
+        } finally {
+            // 后续处理出错的情况与将不需要的元素替换为空
+            // Preserve behavioral compatibility with AbstractCollection,
+            // even if c.contains() throws
+            // 如果r != size 则证明try代码块中的for没有正常执行完有后续没有循环到的元素
+            // 将r及以后元素放至在w索引以后,并为w的计数器加上添加后的数量
+            if (r != size) {
+                System.arraycopy(elementData, r,
+                        elementData, w,
+                        size - r);
+                w += size - r;
+            }
+            // 如果保留的元素比原本的size小，则把w以后的元素都设置为null
+            if (w != size) {
+                // clear to let GC do its work
+                for (int i = w; i < size; i++)
+                    elementData[i] = null;
+                // 记录操作数
+                modCount += size - w;
+                // 设置size为先存元素数量
+                size = w;
+                // 设置返回为true
+                modified = true;
+            }
+        }
+        return modified;
+    }
+```
+首先我们我们先看一下r与w两个int型遍历，r用于遍历数组，而w记录保留了多少个元素，boolean变量modified是我们的返回值，true代表有删除元素，false代表没有删除元素。  
+先看try代码块中很简单的代码，用for遍历elementData，如果c.contains(elementData[r])==complement为true的元素就会被保留下来，由于在c集合中存在这个元素的情况下
+contains会返回true所以complement传入true时保留c中存在的元素，false时删除c中存在的元素，满足条件的元素从0索引开始向后添加直到遍历结束。  
+如果r != size 则证明try代码块中的for没有正常执行完有后续没有循环到的元素。将r及以后元素放至在w索引以后,并为w的计数器加上添加后的数量。  
+如果w != size证明保留的元素比原本的size小，则把w以后的元素都设置为null，并且只有在删除了元素的情况下modified才会被设置为true。

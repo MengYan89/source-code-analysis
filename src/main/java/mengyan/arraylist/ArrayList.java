@@ -583,7 +583,7 @@ public class ArrayList<E> extends AbstractList<E>
         return false;
     }
 
-    /*
+    /**
      * 与remove基本相同只是没有了检测index是否越界与获取被删除的元素。
      * Private remove method that skips bounds checking and does not
      * return the value removed.
