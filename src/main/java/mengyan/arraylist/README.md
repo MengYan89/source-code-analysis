@@ -863,4 +863,41 @@ ArrayList提供了释放储存元素的方法：
 然后调用defaultWriteObject方法将没有被静态修饰和没有被transient修饰的变量写入到流当中。  
 然后将size写入流(其实写入size看起来意义不大，因为之前defaultWriteObject已经将size写进流了，有知道的希望能评论讨论一下)  
 然后将elementData按顺序写入流，仅写入实际的元素，不写入扩容出的多余数组容量，这就是为什么elementData会用transient修饰的原因，为了优化序列化的过程。  
+最后monCount也发挥了他的作用，如果在序列化过程中ArrayList发生了修改，那么的结果也可能是错误的，所以如果在最后判断如果在过程中有对ArrayList进行了修改就会抛出ConcurrentModificationException。  
+### readObject
+```java
+    /**
+     * 反序列化
+     * Reconstitute the <tt>ArrayList</tt> instance from a stream (that is,
+     * deserialize it).
+     */
+    private void readObject(java.io.ObjectInputStream s)
+            throws java.io.IOException, ClassNotFoundException {
+        // 初始一个空elementData
+        elementData = EMPTY_ELEMENTDATA;
+        // Read in size, and any hidden stuff
+        // 从流中读取这个类中可以序列化的字段写入这个类
+        s.defaultReadObject();
+        // Read in capacity
+        // 取出容量
+        s.readInt(); // ignored
+        if (size > 0) {
+            // be like clone(), allocate array based upon size not capacity
+            // 确认ArrayList的容量,实际上一定会返回size
+            int capacity = calculateCapacity(elementData, size);
+            SharedSecrets.getJavaOISAccess().checkArray(s, Object[].class, capacity);
+            ensureCapacityInternal(size);
+            Object[] a = elementData;
+            // Read in all elements in the proper order.
+            for (int i=0; i<size; i++) {
+                a[i] = s.readObject();
+            }
+        }
+    }
+```
+反序列化就像它的名字一样，与序列化做的是相反的事情，序列化是将数据放入到流中，而它是将数据从流中取出来。  
+需要注意的是，取出的顺序一定要和存入数据相同，所以我们对应序列化的defaultWriteObject优先调用了defaultReadObject。  
+然后调用了readInt与writeInt对应，判断size大小，再调用calculateCapacity与ensureCapacityInternal为数组扩容，最后对应序列化的写入操作，把数据取出来。  
+
+
 
