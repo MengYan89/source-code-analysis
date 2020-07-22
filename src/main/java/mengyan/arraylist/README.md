@@ -1,5 +1,44 @@
 # ArrayList源码解析
-
+## 目录
+- [ArrayList是什么](#ArrayList是什么)
+- [继承关系](#继承关系)  
+- [成员变量](#成员变量)  
+    * [DEFAULT_CAPACITY](#DEFAULT_CAPACITY)  
+    * [EMPTY_ELEMENTDATA](#EMPTY_ELEMENTDATA)  
+    * [DEFAULTCAPACITY_EMPTY_ELEMENTDATA](#DEFAULTCAPACITY_EMPTY_ELEMENTDATA)  
+    * [elementData](#数组变量)  
+    * [size](#size变量)  
+    * [MAX_ARRAY_SIZE](#MAX_ARRAY_SIZE)  
+    * [serialVersionUID](#serialversionuid)  
+- [构造函数](#构造函数)  
+- [添加数据](#添加数据)  
+    * [add包括扩容的讲解](#add)  
+    * [addAll](#addall)  
+    * [set](#set)  
+- [查找数据](#查找数据)  
+    * [get](#get)  
+    * [indexOf](#indexof)  
+    * [lastIndexOf](#lastindexof)  
+    * [contains](#contains)  
+- [删除元素](#删除元素)  
+    * [remove](#remove)  
+    * [removeAll与retainAll](#removeall与retainall)  
+- [获取ArrayList基本信息](#获取ArrayList基本信息)  
+    * [size](#size)  
+    * [isEmpty](#isempty)  
+- [手动扩容与缩减](#手动扩容与缩减)  
+    * [trimToSize](#trimtosize)  
+    * [ensureCapacity](#ensurecapacity)  
+- [生成对应数组](#生成对应数组)  
+    * [toArray](#toarray)  
+- [克隆](#克隆)  
+    * [clone](#clone)  
+- [释放](#释放)  
+    * [clear](#clear)  
+- [序列化与反序列化](#序列化与反序列化)  
+    * [writeObject](#writeobject)  
+    * [readObject](#readobject)  
+- [forEach](#foreach)  
 ## ArrayList是什么
 ArrayList是Java集合框架中比较常用的数据结构。是一个容量能够动态增长的数组。它继承了AbstractList抽象类，
 并实现了List,RandomAccess,Cloneable,Serializable四个接口，所以ArrayList支持快速访问，克隆并且支持序列化。
@@ -49,10 +88,11 @@ ArrayList默认的初始大小，如果创建实例时使用无参构造函数�
 ### DEFAULTCAPACITY_EMPTY_ELEMENTDATA
 也是一个空的Object数组，用于判断创建ArrayList时是否给出初始大小，如何使用会在下面解释。  
 也叫缺省空对象数组。  
-### elementData
+### 数组变量
+elementData  
 实际存储元素的Object数组，需要注意的是它被transient修饰，在序列化反序列化时默认将忽视被transient修饰的成员变量。  
 在之前我们说过ArrayList支持序列化，其实这个ArrayList为了节约资源做出的优化，ArrayList如果序列化会在下面序列化与反序列化的章节说明。 
-### size
+### size变量
 ArrayList的大小，这个大小是实际保存的元素的数量，而不是ArrayList的大小。
 ### MAX_ARRAY_SIZE
 java官方描述是ArrayList的最大大小也就是Integer的最大值-8，但实际上最大并不是，最大应该是等于Integer的最大值(2的31次幂-1 = 2147483647)。
@@ -281,8 +321,8 @@ Arrays.copyOf这个方法我觉得大家都应该很熟悉了，生成一个新�
 ```
 然后与第一个add方法一样调用ensureCapacityInternal判断是否进行扩容并扩容  
 经过ensureCapacityInternal后，调用System.arraycopy将index的位置空出来，后面的元素右移一位。  
-![arraycopy](img/arraycopy.gif)
-最后将element放到index位置，元素数量+1。
+![arraycopy](img/arraycopy.gif)  
+最后将element放到index位置，元素数量+1。  
 ### addAll
 addAll同样也进行了重载一共有2个方法，一个是插入到末尾的，一个是插入到指定位置的
 ```java
@@ -868,8 +908,6 @@ ArrayList提供了释放储存元素的方法：
 ```java
     /**
      * 反序列化
-     * Reconstitute the <tt>ArrayList</tt> instance from a stream (that is,
-     * deserialize it).
      */
     private void readObject(java.io.ObjectInputStream s)
             throws java.io.IOException, ClassNotFoundException {
@@ -898,6 +936,59 @@ ArrayList提供了释放储存元素的方法：
 反序列化就像它的名字一样，与序列化做的是相反的事情，序列化是将数据放入到流中，而它是将数据从流中取出来。  
 需要注意的是，取出的顺序一定要和存入数据相同，所以我们对应序列化的defaultWriteObject优先调用了defaultReadObject。  
 然后调用了readInt与writeInt对应，判断size大小，再调用calculateCapacity与ensureCapacityInternal为数组扩容，最后对应序列化的写入操作，把数据取出来。  
-
+## forEach
+forEach这个方法的参数是Consumer也就是lambda表达式。  
+这个方法是这样使用的:
+```java
+i.forEach((x)->{System.out.println(x)});
+```
+你的遍历的元素会成为x，执行后面箭头所指向的方法块。  
+如果不是很能理解lambda表达式就让给我们来看一下Consumer这个接口。  
+```java
+@FunctionalInterface
+public interface Consumer<T> {
+    void accept(T t);
+    default Consumer<T> andThen(Consumer<? super T> after) {
+        Objects.requireNonNull(after);
+        return (T t) -> { accept(t); after.accept(t); };
+    }
+}
+```
+这个接口只有两个方法一个抽象方法一个默认方法。  
+其实这是java对于函数式编程的规范传入lambda表达式的对象只能有一个抽象方法。  
+这样其实大家就明白了你传入的那个代码块其实就是实现了Consumer中的accept方法。  
+因为forEach也可以这样使用：
+```java
+        i.forEach(new Consumer<Integer>() {
+            @Override
+            public void accept(Integer integer) {
+                System.out.println(integer);
+            }
+        });
+```
+在理解了Consumer之后再来看forEach就简单多了：
+```java
+    /**
+     * 对每一个元素进行指定的操作action,直到所有元素都处理完或者发生异常，除非另有指定
+     * @param action
+    */
+    @Override
+    public void forEach(Consumer<? super E> action) {
+        Objects.requireNonNull(action);
+        final int expectedModCount = modCount;
+        @SuppressWarnings("unchecked")
+        final E[] elementData = (E[]) this.elementData;
+        final int size = this.size;
+        for (int i=0; modCount == expectedModCount && i < size; i++) {
+            action.accept(elementData[i]);
+        }
+        if (modCount != expectedModCount) {
+            throw new ConcurrentModificationException();
+        }
+    }
+```
+首先判断传入的action是否为空，然后记录操作数。获取元素与元素数量，遍历执行accept方法。  
+其中需要注意的是for中的modCount == expectedModCount这意味着如果在forEach的时候操作了ArrayList。
+forEach就会被终止，抛出ConcurrentModificationException。  
 
 

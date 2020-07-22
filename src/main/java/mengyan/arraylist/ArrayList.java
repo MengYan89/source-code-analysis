@@ -1321,6 +1321,10 @@ public class ArrayList<E> extends AbstractList<E>
         }
     }
 
+    /**
+     * 对每一个元素进行指定的操作action,直到所有元素都处理完或者发生异常，除非另有指定
+     * @param action
+     */
     @Override
     public void forEach(Consumer<? super E> action) {
         Objects.requireNonNull(action);
