@@ -1476,21 +1476,32 @@ public class ArrayList<E> extends AbstractList<E>
         }
     }
 
+    /**
+     * 根据传入的函数接口筛选List中的元素
+     * @param filter
+     * @return
+     */
     @Override
     public boolean removeIf(Predicate<? super E> filter) {
+        // 判断filter是否为空
         Objects.requireNonNull(filter);
-        // figure out which elements are to be removed
-        // any exception thrown from the filter predicate at this stage
-        // will leave the collection unmodified
+        // 用于记录删除了多少个元素
         int removeCount = 0;
+        // 创建一个BitSet记录哪个位置的元素被删除了
         final BitSet removeSet = new BitSet(size);
+        // 记录操作数用于校验
         final int expectedModCount = modCount;
+        // 获取size
         final int size = this.size;
+        // 遍历elementData获取其中的元素进行校验
         for (int i=0; modCount == expectedModCount && i < size; i++) {
             @SuppressWarnings("unchecked")
             final E element = (E) elementData[i];
+            // test方法返回为true的则会被记录为删除
             if (filter.test(element)) {
+                // 将removeSet中i位置设置为true
                 removeSet.set(i);
+                // 删除计数器+1
                 removeCount++;
             }
         }
@@ -1498,27 +1509,37 @@ public class ArrayList<E> extends AbstractList<E>
             throw new ConcurrentModificationException();
         }
 
-        // shift surviving elements left over the spaces left by removed elements
+        // 判断是否有删除元素，有删除元素才执行删除
         final boolean anyToRemove = removeCount > 0;
         if (anyToRemove) {
+            // 获取被删除后的新数组大小
             final int newSize = size - removeCount;
+            // 遍历elementData,j顺序遍历，而i则只会遍历到removeSet中是false的元素。
             for (int i=0, j=0; (i < size) && (j < newSize); i++, j++) {
+                // 之前将删除的索引在removeSet都标记为true了，而nextClearBit只会获取到为false的索引
+                // 遇到true就会跳过，所以i会被j大直接覆盖掉被删除的元素
+                // 这也是for中(i < size) && (j < newSize)的原因
                 i = removeSet.nextClearBit(i);
                 elementData[j] = elementData[i];
             }
+            // 将newSize后多余的元素设置为null
             for (int k=newSize; k < size; k++) {
                 elementData[k] = null;  // Let gc do its work
             }
+            // 将size设置为新的newSize
             this.size = newSize;
             if (modCount != expectedModCount) {
                 throw new ConcurrentModificationException();
             }
             modCount++;
         }
-
+        // 返回是否有元素被删除
         return anyToRemove;
     }
 
+    /**
+     * 用函数接口的返回结果替代原本list中的值
+     */
     @Override
     @SuppressWarnings("unchecked")
     public void replaceAll(UnaryOperator<E> operator) {

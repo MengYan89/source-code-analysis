@@ -39,6 +39,8 @@
     * [writeObject](#writeobject)  
     * [readObject](#readobject)  
 - [forEach](#foreach)  
+- [replaceAll](#replaceall)  
+- [removeIf](#removeif)
 ## ArrayList是什么
 ArrayList是Java集合框架中比较常用的数据结构。是一个容量能够动态增长的数组。它继承了AbstractList抽象类，
 并实现了List,RandomAccess,Cloneable,Serializable四个接口，所以ArrayList支持快速访问，克隆并且支持序列化。
@@ -990,5 +992,154 @@ public interface Consumer<T> {
 首先判断传入的action是否为空，然后记录操作数。获取元素与元素数量，遍历执行accept方法。  
 其中需要注意的是for中的modCount == expectedModCount这意味着如果在forEach的时候操作了ArrayList。
 forEach就会被终止，抛出ConcurrentModificationException。  
+## replaceAll
+用函数接口的返回结果替代原本list中的值。  
+```java
+    /**
+    * 用函数接口的返回结果替代原本list中的值
+    */
+    @Override
+    @SuppressWarnings("unchecked")
+    public void replaceAll(UnaryOperator<E> operator) {
+        Objects.requireNonNull(operator);
+        final int expectedModCount = modCount;
+        final int size = this.size;
+        for (int i=0; modCount == expectedModCount && i < size; i++) {
+            elementData[i] = operator.apply((E) elementData[i]);
+        }
+        if (modCount != expectedModCount) {
+            throw new ConcurrentModificationException();
+        }
+        modCount++;
+    }
+```
+首先还是判断operator这个函数对象是否为空，函数式编程在上面的forEach已经讲过了就不再讲了只不过UnaryOperator有返回值，感兴趣的可以自己看一下。  
+下面还是老操作记录操作数和长度，然后遍历执行UnaryOperator的apply也就是咱们传入的函数，去替换元素。如果modCount != expectedModCount就抛出ConcurrentModificationException。  
+## removeIf  
+根据传入的函数接口筛选List中的元素  
+```java
+ /**
+     * 根据传入的函数接口筛选List中的元素
+     * @param filter
+     * @return
+     */
+    @Override
+    public boolean removeIf(Predicate<? super E> filter) {
+        // 判断filter是否为空
+        Objects.requireNonNull(filter);
+        // 用于记录删除了多少个元素
+        int removeCount = 0;
+        // 创建一个BitSet记录哪个位置的元素被删除了
+        final BitSet removeSet = new BitSet(size);
+        // 记录操作数用于校验
+        final int expectedModCount = modCount;
+        // 获取size
+        final int size = this.size;
+        // 遍历elementData获取其中的元素进行校验
+        for (int i=0; modCount == expectedModCount && i < size; i++) {
+            @SuppressWarnings("unchecked")
+            final E element = (E) elementData[i];
+            // test方法返回为true的则会被记录为删除
+            if (filter.test(element)) {
+                // 将removeSet中i位置设置为true
+                removeSet.set(i);
+                // 删除计数器+1
+                removeCount++;
+            }
+        }
+        if (modCount != expectedModCount) {
+            throw new ConcurrentModificationException();
+        }
 
+        // 判断是否有删除元素，有删除元素才执行删除
+        final boolean anyToRemove = removeCount > 0;
+        if (anyToRemove) {
+            // 获取被删除后的新数组大小
+            final int newSize = size - removeCount;
+            // 遍历elementData,j顺序遍历，而i则只会遍历到removeSet中是false的元素。
+            for (int i=0, j=0; (i < size) && (j < newSize); i++, j++) {
+                // 之前将删除的索引在removeSet都标记为true了，而nextClearBit只会获取到为false的索引
+                // 遇到true就会跳过，所以i会被j大直接覆盖掉被删除的元素
+                // 这也是for中(i < size) && (j < newSize)的原因
+                i = removeSet.nextClearBit(i);
+                elementData[j] = elementData[i];
+            }
+            // 将newSize后多余的元素设置为null
+            for (int k=newSize; k < size; k++) {
+                elementData[k] = null;  // Let gc do its work
+            }
+            // 将size设置为新的newSize
+            this.size = newSize;
+            if (modCount != expectedModCount) {
+                throw new ConcurrentModificationException();
+            }
+            modCount++;
+        }
+        // 返回是否有元素被删除
+        return anyToRemove;
+    }
+```
+先讲一下这几个局部变量:  
+removeCount:删除计数器，记录将要删除多少元素。  
+removeSet:用于记录哪个位置的元素会被删除。他的类型是BitSet这是一个用于存储二进制位和对二进制进行操作的数据结构。
+默认情况下set中的所有位置初始值都是false,我们会把需要删除的位置设置为true用于判断哪个位置需要删除。  
+后面这两个用于校验的遍历看的够多了，不再解释。  
+下面还是先遍历elementData，如果过程中被修改则抛错。for中将执行filter.test(element)判断element是否满足过滤的条件，
+如果满足则会被标记为删除，注意这里没有删除，只是在BitSet对应位置标记了true，然后removeCount+1。  
+```java
+            // test方法返回为true的则会被记录为删除
+            if (filter.test(element)) {
+                // 将removeSet中i位置设置为true
+                removeSet.set(i);
+                // 删除计数器+1
+                removeCount++;
+            }
+```
+接下来判断是否有元素被删除，当removeCount > 0，才去执行删除覆盖的操作。  
+```java
+        final boolean anyToRemove = removeCount > 0;
+        if (anyToRemove)
+```
+下面才是真正删除元素的位置:  
+```java
+            // 获取被删除后的新数组大小
+            final int newSize = size - removeCount;
+            // 遍历elementData,j顺序遍历，而i则只会遍历到removeSet中是false的元素。
+            for (int i=0, j=0; (i < size) && (j < newSize); i++, j++) {
+                // 之前将删除的索引在removeSet都标记为true了，而nextClearBit只会获取到为false的索引
+                // 遇到true就会跳过，所以i会被j大直接覆盖掉被删除的元素
+                // 这也是for中(i < size) && (j < newSize)的原因
+                i = removeSet.nextClearBit(i);
+                elementData[j] = elementData[i];
+            }
+```
+首先他先使用size减去将要删除的数量获取到一个的长度newSize,然后进行遍历他这里的条件有些不同 (i < size) && (j < newSize)我们下面解释  
+首先我们知道removeSet对应着被标记为要删除的索引都是true，而BitSet有一个方法nextClearBit它可以只获得传入索引之后的为false的索引  
+这样就跳过了被标记为true的索引下面我们看代码。  
+比如现在i被标记为true则获得到的就是下一个为false的索引比如i+1,这样同时遍历的j与i，i+1就比j要大，这样在执行elementData[j] = elementData[i];时
+就会直接覆盖原本的i元素达到删除的目的，这也是为什么for中的条件是(i < size) && (j < newSize)的原因。  
+这样遍历完之后我们就覆盖了全部的要被删除的元素，接下来就是把后面不需要的元素都设置为null。  
+```java
+            // 将newSize后多余的元素设置为null
+            for (int k=newSize; k < size; k++) {
+                elementData[k] = null;  // Let gc do its work
+            }
+```
+最后重新设置size，判断操作数。  
+```java
+            // 将newSize后多余的元素设置为null
+            for (int k=newSize; k < size; k++) {
+                elementData[k] = null;  // Let gc do its work
+            }
+            // 将size设置为新的newSize
+            this.size = newSize;
+            if (modCount != expectedModCount) {
+                throw new ConcurrentModificationException();
+            }
+            modCount++;
+```
+返回是否有元素被删除。  
+```java
+return anyToRemove;
+```
 
