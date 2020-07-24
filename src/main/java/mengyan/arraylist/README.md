@@ -1142,4 +1142,18 @@ removeSet:用于记录哪个位置的元素会被删除。他的类型是BitSet�
 ```java
 return anyToRemove;
 ```
+## sort
+传入一个排序函数然后调用Arrays#sort给elementData排序,如果排序过程中元素被修改就抛出ConcurrentModificationException
+```java
+    @Override
+    @SuppressWarnings("unchecked")
+    public void sort(Comparator<? super E> c) {
+        final int expectedModCount = modCount;
+        Arrays.sort((E[]) elementData, 0, size, c);
+        if (modCount != expectedModCount) {
+            throw new ConcurrentModificationException();
+        }
+        modCount++;
+    }
+```
 
